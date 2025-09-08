@@ -92,6 +92,7 @@ export default function PrecificacaoIndividual({ usuario }) {
       setSucesso(true);
     } catch (err) {
       alert("Erro ao gravar Firestore: " + (err.message || String(err)));
+      console.log(usuario);
     }
   }
 
