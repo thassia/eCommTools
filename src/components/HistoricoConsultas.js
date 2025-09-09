@@ -55,27 +55,44 @@ export default function HistoricoConsultas({ usuario }) {
     // eslint-disable-next-line
   }, [usuario, termo, filtro, canalBusca]);
 
-  // Busca paginada
   async function buscar(pagina = 0, ultimo = null) {
     if (!usuario?.email) return;
+
     let qBase = collection(db, "historico_precificacao");
     let constraints = [where("usuario", "==", usuario.email)];
-    if (termo) constraints.push(where(filtro, "==", termo));
-    if (canalBusca) constraints.push(where("canal", "==", canalBusca));
     constraints.push(orderBy(orderByField, orderDirection));
-    constraints.push(limit(20));
+    // Pegue mais docs do que o necessário (ex: 200) para filtrar parcialmente no frontend:
+    constraints.push(limit(200));
     if (pagina > 0 && ultimo) {
       constraints.push(startAfter(ultimo));
     }
     const q = query(qBase, ...constraints);
+
     const snapshot = await getDocs(q);
-    const data = snapshot.docs.map((doc) => ({
+    let data = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
-    setHistorico(data);
-    setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+
+    // Filtro canal
+    if (canalBusca) {
+      data = data.filter(
+        (item) => (item.canal || "").toLowerCase() === canalBusca.toLowerCase()
+      );
+    }
+
+    // Filtro parcial (busca livre) para campo selecionado
+    if (termo) {
+      data = data.filter((item) => {
+        const valorCampo = String(item[filtro] || "").toLowerCase();
+        return valorCampo.includes(termo.toLowerCase());
+      });
+    }
+
+    setHistorico(data.slice(page * 20, page * 20 + 20)); // paginação no frontend
+    setLastVisible(snapshot.docs[snapshot.docs.length - 1] || null);
   }
+
 
   useEffect(() => {
     buscar(0, null);

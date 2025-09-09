@@ -12,7 +12,7 @@ export default function Home() {
   return (
     <Container maxWidth="md" sx={{ pt: 5 }}>
       <Card elevation={4} sx={{ p: 3, mb: 3, bgcolor: 'primary.main', color: 'primary.contrastText' }}>
-        <Typography variant="h4" gutterBottom>Agente de Precificação</Typography>
+        <Typography variant="h4" gutterBottom>Precificador</Typography>
       </Card>
       <LoginGoogle onAuthChange={setUser} />
       {user ? (

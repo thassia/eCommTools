@@ -234,7 +234,7 @@ export default function PrecificacaoIndividual({ usuario }) {
             sx={{ width: 200 }}
           />
           <TextField
-            label="Preço de Custo"
+            label="Custo"
             required
             type="number"
             value={dados.precoCusto}
@@ -305,7 +305,7 @@ export default function PrecificacaoIndividual({ usuario }) {
             }
           />
           <TextField
-            label="Frete Unitário"
+            label="Frete"
             type="number"
             required={dados.canal === "Mercado Livre" && Number(resultado?.precoVenda) > 79}
             error={freteErro}
