@@ -1,9 +1,4 @@
 import { useState, useEffect } from "react";
-
-// Adicione apenas para teste. Depois pode remover!
-import { db } from "@/lib/firebase";
-import { collection, addDoc } from "firebase/firestore";
-
 import LoginGoogle from "@/components/LoginGoogle";
 import PrecificacaoLote from "@/components/PrecificacaoLote";
 import PrecificacaoIndividual from "@/components/PrecificacaoIndividual";
@@ -12,23 +7,6 @@ import { Container, Typography, Box, Card, Tabs, Tab } from "@mui/material";
 
 export default function Home() {
   const [user, setUser] = useState(null);
-
-// Dentro de um useEffect ou após usuário logar:
-useEffect(() => {
-  async function testarConexao() {
-    try {
-      await addDoc(collection(db, "teste_conexao"), {
-        mensagem: "Teste de conexão OK",
-        data: new Date().toISOString()
-      });
-      alert("Conexão com Firestore OK! Veja a coleção 'teste_conexao' no painel Firebase.");
-    } catch (err) {
-      alert("Erro ao conectar no Firestore: " + (err.message || String(err)));
-    }
-  }
-  testarConexao();
-}, []);
-
   const [aba, setAba] = useState(0);
 
   return (
@@ -41,7 +19,7 @@ useEffect(() => {
         <Box sx={{mt: 3}}>
           <Tabs value={aba} onChange={(e, v) => setAba(v)}>
             <Tab label="Precificar Produto Único" />
-            <Tab label="Precificar em Lote" />
+            <Tab label="Precificar em Lote (em dev)" />
             <Tab label="Consultar Histórico" />
           </Tabs>
           <Box sx={{mt:3}}>

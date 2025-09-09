@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider,connectAuthEmulator } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBm3O_bwvoZCDrZljra78bhZrgWI3iru8Q",
@@ -21,6 +21,5 @@ export const googleProvider = new GoogleAuthProvider();
 if (process.env.NODE_ENV === "development") {
   connectFirestoreEmulator(db, "localhost", 8080);
   // Se usar Auth, também:
-  // import { connectAuthEmulator } from "firebase/auth";
-  // connectAuthEmulator(auth, "http://localhost:9099");
+  //connectAuthEmulator(auth, "http://localhost:9099");
 }
