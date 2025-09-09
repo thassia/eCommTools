@@ -19,7 +19,7 @@ export default function Home() {
         <Box sx={{mt: 3}}>
           <Tabs value={aba} onChange={(e, v) => setAba(v)}>
             <Tab label="Produto Único" />
-            <Tab label="Em Lote (em dev)" />
+            <Tab label="Em Lote" />
             <Tab label="Consultar Histórico" />
           </Tabs>
           <Box sx={{mt:3}}>
