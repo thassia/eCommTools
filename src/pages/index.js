@@ -18,8 +18,8 @@ export default function Home() {
       {user ? (
         <Box sx={{mt: 3}}>
           <Tabs value={aba} onChange={(e, v) => setAba(v)}>
-            <Tab label="Precificar Produto Único" />
-            <Tab label="Precificar em Lote (em dev)" />
+            <Tab label="Produto Único" />
+            <Tab label="Em Lote (em dev)" />
             <Tab label="Consultar Histórico" />
           </Tabs>
           <Box sx={{mt:3}}>

@@ -1,55 +1,16 @@
 import { useState } from "react";
 import { db } from "@/lib/firebase";
 import { collection, addDoc } from "firebase/firestore";
+import { Card, CardContent, TextField, Button, Typography, Alert, Box, MenuItem } from "@mui/material";
+
 import {
-  Card,
-  CardContent,
-  TextField,
-  Button,
-  Typography,
-  Alert,
-  Box,
-  MenuItem,
-} from "@mui/material";
+  sugestaoComissoes,
+  calcularTarifaFixaML,
+  calcularPrecoVenda
+} from "@/core/precificacao/precificacaoCalculos";
 
 const canais = ["Mercado Livre", "Shopee", "TikTok"];
 const tiposML = ["Clássico", "Premium"];
-const sugestaoComissoes = {
-  "Mercado Livre": { "Clássico": 12, "Premium": 17 }, // Ajuste aqui quando mudar regra ML
-  Shopee: 20,
-  TikTok: 12,
-};
-
-// Função que retorna tarifa fixa ML de acordo com o preço de venda sugerido
-function calcularTarifaFixaML(precoVenda) {
-  precoVenda = parseFloat(precoVenda || 0);
-  if (precoVenda < 12.5) return (precoVenda / 2).toFixed(2);
-  if (precoVenda >= 12.5 && precoVenda <= 29) return 6.25;
-  if (precoVenda > 29 && precoVenda <= 50) return 6.5;
-  if (precoVenda > 50 && precoVenda <= 79) return 6.75;
-  return 0;
-}
-
-// Função para simular preço de venda baseado nos inputs atuais
-function calcularPrecoVendaSimples(dados, tarifaFixaManual = null) {
-  let precoCusto = parseFloat(dados.precoCusto) || 0;
-  let frete = parseFloat(dados.frete) || 0;
-  let imposto = parseFloat(dados.imposto) || 0;
-  let comissao = parseFloat(dados.comissao) || 0;
-  let lucro = parseFloat(dados.lucro) || 0;
-  let custoFixo = parseFloat(dados.custoFixo) || 0;
-  let tarifaFixa = tarifaFixaManual !== null
-    ? parseFloat(tarifaFixaManual)
-    : parseFloat(dados.tarifaFixa) || 0;
-  let taxaOutros = (imposto + lucro + custoFixo) / 100;
-  if (dados.canal === "Mercado Livre") {
-    const taxaComissao = comissao / 100;
-    return (precoCusto + frete + tarifaFixa) / (1 - taxaOutros - taxaComissao);
-  } else {
-    let taxaTotal = taxaOutros + comissao / 100;
-    return (precoCusto + frete + tarifaFixa) / (1 - taxaTotal);
-  }
-}
 
 export default function PrecificacaoIndividual({ usuario }) {
   const [dados, setDados] = useState({
@@ -75,13 +36,11 @@ export default function PrecificacaoIndividual({ usuario }) {
   function handleChange(field, value) {
     let novosDados = { ...dados, [field]: value };
 
-    // Quando troca Canal, sugere comissão e tarifa fixa
     if (field === "canal") {
       if (value === "Mercado Livre") {
-        if (dados.tipoAnuncio)
-          novosDados.comissao = sugestaoComissoes["Mercado Livre"][dados.tipoAnuncio];
-        // Sugere tarifa fixa, já que canal acabou de ser mudado
-        let pvPrev = calcularPrecoVendaSimples({ ...novosDados, canal: "Mercado Livre" });
+        if (novosDados.tipoAnuncio)
+          novosDados.comissao = sugestaoComissoes["Mercado Livre"][novosDados.tipoAnuncio];
+        let pvPrev = calcularPrecoVenda({ ...novosDados, canal: "Mercado Livre" });
         novosDados.tarifaFixa = calcularTarifaFixaML(pvPrev);
       }
       if (value === "Shopee") {
@@ -97,80 +56,39 @@ export default function PrecificacaoIndividual({ usuario }) {
       if (value !== "Mercado Livre") novosDados.tipoAnuncio = "";
     }
 
-    // Mudança do tipo ML = sugere comissão e tarifa
     if (field === "tipoAnuncio" && novosDados.canal === "Mercado Livre") {
       novosDados.comissao = sugestaoComissoes["Mercado Livre"][value];
-      let pvPrev = calcularPrecoVendaSimples({ ...novosDados });
+      let pvPrev = calcularPrecoVenda(novosDados);
       novosDados.tarifaFixa = calcularTarifaFixaML(pvPrev);
     }
 
-    // Quando campos que afetam preço são alterados, recalcula tarifa ML
     const camposARecalcular = [
-      "precoCusto",
-      "frete",
-      "comissao",
-      "imposto",
-      "lucro",
-      "custoFixo",
+      "precoCusto", "frete", "comissao", "imposto", "lucro", "custoFixo"
     ];
     if (
       novosDados.canal === "Mercado Livre" &&
       camposARecalcular.includes(field)
     ) {
-      let pvPrev = calcularPrecoVendaSimples(novosDados);
+      let pvPrev = calcularPrecoVenda(novosDados);
       novosDados.tarifaFixa = calcularTarifaFixaML(pvPrev);
     }
-
     setDados(novosDados);
   }
 
   function calcular() {
-    let {
-      precoCusto,
-      frete,
-      imposto,
-      comissao,
-      lucro,
-      custoFixo,
-      canal,
-      tarifaFixa,
-    } = dados;
+    let precoVenda = calcularPrecoVenda(dados);
 
-    precoCusto = parseFloat(precoCusto) || 0;
-    frete = parseFloat(frete) || 0;
-    imposto = parseFloat(imposto) || 0;
-    comissao = parseFloat(comissao) || 0;
-    lucro = parseFloat(lucro) || 0;
-    custoFixo = parseFloat(custoFixo) || 0;
-    tarifaFixa = parseFloat(tarifaFixa) || 0;
-    let taxaOutros = (imposto + lucro + custoFixo) / 100;
+    // Corrige tarifa fixa caso faixa mude após cálculo
+    let tarifaFixaCorreta = parseFloat(calcularTarifaFixaML(precoVenda));
+    if (dados.canal === "Mercado Livre" && tarifaFixaCorreta !== parseFloat(dados.tarifaFixa)) {
+      setDados((prev) => ({ ...prev, tarifaFixa: tarifaFixaCorreta }));
+      precoVenda = calcularPrecoVenda({ ...dados, tarifaFixa: tarifaFixaCorreta });
+    }
 
-    let precoVenda;
-    if (canal === "Mercado Livre") {
-      const taxaComissao = comissao / 100;
-      precoVenda = (precoCusto + frete + tarifaFixa) / (1 - taxaOutros - taxaComissao);
-
-      // Corrige tarifa fixa se valor final exigir, sem entrar em loop
-      let tarifaFixaCorreta = parseFloat(calcularTarifaFixaML(precoVenda));
-      if (tarifaFixaCorreta !== tarifaFixa) {
-        tarifaFixa = tarifaFixaCorreta;
-        precoVenda = (precoCusto + frete + tarifaFixa) / (1 - taxaOutros - taxaComissao);
-        setDados((prev) => ({ ...prev, tarifaFixa: tarifaFixaCorreta }));
-      }
-
-      // Frete obrigatório e aviso para ML acima de R$79
-      if (precoVenda > 79) {
-        setAvisoML(
-          "ATENÇÃO: Para produtos acima de R$79 no Mercado Livre, a tarifa fixa é isenta e é obrigatório oferecer frete ao comprador!"
-        );
-        setFreteErro(frete === 0);
-      } else {
-        setAvisoML("");
-        setFreteErro(false);
-      }
+    if (dados.canal === "Mercado Livre" && precoVenda > 79) {
+      setAvisoML("ATENÇÃO: Para produtos acima de R$79 no Mercado Livre, a tarifa fixa é isenta e é obrigatório oferecer frete ao comprador!");
+      setFreteErro((parseFloat(dados.frete) || 0) === 0);
     } else {
-      let taxaTotal = taxaOutros + comissao / 100;
-      precoVenda = (precoCusto + frete + tarifaFixa) / (1 - taxaTotal);
       setAvisoML("");
       setFreteErro(false);
     }
@@ -190,7 +108,6 @@ export default function PrecificacaoIndividual({ usuario }) {
       setSucesso(true);
     } catch (err) {
       alert("Erro ao gravar Firestore: " + (err.message || String(err)));
-      console.log(usuario);
     }
   }
 
