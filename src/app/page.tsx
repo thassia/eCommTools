@@ -34,7 +34,7 @@ export default function Home() {
         eCommTools
       </Typography>
       <Typography variant="h6" align="center" color="text.secondary" sx={{ mb: 6 }}>
-        Toolbox minimalista para inteligência em e-commerce
+        Toolbox de inteligência em e-commerce
       </Typography>
       <Grid container spacing={4}>
         {modules.map((mod) => (
