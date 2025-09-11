@@ -31,10 +31,10 @@ export default function LoginGoogle({ onAuthChange }) {
     <Box sx={{textAlign:"center", my:2}}>
       {user ? (
         <Box>
-          <Avatar src={user.photoURL} sx={{margin:'auto'}} />
+          {/*<Avatar src={user.photoURL} sx={{margin:'auto'}} />
           <Typography variant="body1">{user.displayName}</Typography>
-          <Typography variant="caption">{user.email}</Typography>
-          <br />
+          <br />*/}
+          <Typography variant="caption">{user.email} </Typography>
           <Button variant="outlined" color="error" onClick={logout}>Sair</Button>
         </Box>
       ) : (
