@@ -9,19 +9,19 @@ import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
 const modules = [
   {
     title: "Precificador",
-    description: "Calcule o preço ideal de venda para produtos individuais, lote e acompanhe seu histórico.",
+    description: "Calcule o preço ideal de venda individual, em lote e veja seu histórico.",
     href: "/precificador",
     icon: <CalculateIcon sx={{ fontSize: 40, color: 'primary.main' }} />
   },
   {
     title: "Agente de Anúncios",
-    description: "Geração automática e otimizada de descrições para seus anúncios usando IA.",
+    description: "Gere descrições e otimize anúncios automaticamente com IA.",
     href: "/agente-anuncios",
     icon: <RocketLaunchIcon sx={{ fontSize: 40, color: 'primary.main' }} />
   },
   {
     title: "Cálculo de Monofásicos",
-    description: "Simule facilmente tributos PIS/COFINS monofásicos para produtos de beleza e mais.",
+    description: "Simulação rápida de tributos PIS/COFINS monofásicos.",
     href: "/monofasicos",
     icon: <MemoryIcon sx={{ fontSize: 40, color: 'primary.main' }} />
   }
@@ -34,12 +34,12 @@ export default function Home() {
         eCommTools
       </Typography>
       <Typography variant="h6" align="center" color="text.secondary" sx={{ mb: 6 }}>
-        Toolbox de inteligência em e-commerce
+        Toolbox minimalista para inteligência em e-commerce
       </Typography>
-      <Grid container spacing={4} justifyContent="center">
+      <Grid container spacing={4}>
         {modules.map((mod) => (
-          <Grid item xs={12} sm={6} md={4} key={mod.title}>
-            <Link href={mod.href} passHref legacyBehavior>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={mod.title}>
+            <Link href={mod.href} style={{ textDecoration: "none" }}>
               <ButtonBase
                 focusRipple
                 sx={{
