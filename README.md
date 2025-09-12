@@ -38,3 +38,12 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
+## Importando e Atualizando a Base de Produtos Monofásicos (PIS/COFINS)
+
+1. Baixe a tabela mais recente de produtos monofásicos diretamente do SPED/Receita Federal:
+   - http://sped.rfb.gov.br/item/show/1638 (Tabela 4.3.10 - Excel ou CSV)
+
+2. Salve o arquivo na pasta `/scripts/input/` com o nome `monofasico.xlsx` ou `monofasico.csv`.
+
+3. Rode o script de conversão para gerar o arquivo JSON que será utilizado no projeto:
+

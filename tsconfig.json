@@ -13,13 +13,14 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "baseUrl": ".",
     "plugins": [
       {
         "name": "next"
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["src/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/lib/firebase.js", "src/components/PrecificacaoLote.js", "src/components/PrecificacaoIndividual.js", "src/components/LoginGoogle.js", "src/components/HistoricoConsultas.js", "src/core/precificacao/precificacaoValidadores.js", "src/core/precificacao/precificacaoCalculos.js"],

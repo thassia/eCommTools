@@ -92,7 +92,7 @@ export default function AgenteAnunciosPage() {
       <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 3 }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', color: '#1976d2', textDecoration: 'none', fontWeight: 500 }}>
           <HomeIcon fontSize="small" sx={{ mr: 0.5 }} />
-          Home
+          Início
         </Link>
         <Typography color="text.primary" fontWeight={500}>
           Agente de Anúncios
