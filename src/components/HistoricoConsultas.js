@@ -4,28 +4,27 @@ import {
   collection, query, where, orderBy, getDocs, limit, startAfter
 } from "firebase/firestore";
 import {
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  TextField,
-  Button,
-  MenuItem,
-  Paper,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  TableSortLabel,
-  TablePagination,
+  Typography, Box, TextField, Button, MenuItem, Paper,
+  Table, TableHead, TableBody, TableRow, TableCell,
+  TableSortLabel, TablePagination, Grid, useMediaQuery
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 
 const canaisFiltro = ["", "Mercado Livre", "Shopee", "TikTok"];
 const camposFiltro = [
   { value: "descricao", label: "Descrição" },
   { value: "sku", label: "SKU" },
   { value: "ean", label: "EAN" },
+];
+
+const colunasTabela = [
+  { id: "descricao", label: "Descrição" },
+  { id: "sku", label: "SKU" },
+  { id: "ean", label: "EAN" },
+  { id: "canal", label: "Canal" },
+  { id: "precoCusto", label: "Custo" },
+  { id: "precoVenda", label: "Preço Venda" },
+  { id: "criadoEm", label: "Data/Hora" },
 ];
 
 export default function HistoricoConsultas({ usuario }) {
@@ -38,8 +37,15 @@ export default function HistoricoConsultas({ usuario }) {
   const [page, setPage] = useState(0);
   const [lastVisible, setLastVisible] = useState(null);
   const [count, setCount] = useState(0);
+  const rowsPerPage = 20;
 
-  // Contagem total de registros
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const colunasVisiveis = isMobile
+    ? [colunasTabela[0], colunasTabela[6]] // Só "Descrição" e "Data/Hora" no mobile
+    : colunasTabela;
+
   useEffect(() => {
     async function contar() {
       if (!usuario?.email) return;
@@ -57,42 +63,33 @@ export default function HistoricoConsultas({ usuario }) {
 
   async function buscar(pagina = 0, ultimo = null) {
     if (!usuario?.email) return;
-
     let qBase = collection(db, "historico_precificacao");
     let constraints = [where("usuario", "==", usuario.email)];
     constraints.push(orderBy(orderByField, orderDirection));
-    // Pegue mais docs do que o necessário (ex: 200) para filtrar parcialmente no frontend:
     constraints.push(limit(200));
     if (pagina > 0 && ultimo) {
       constraints.push(startAfter(ultimo));
     }
     const q = query(qBase, ...constraints);
-
     const snapshot = await getDocs(q);
     let data = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
-
-    // Filtro canal
     if (canalBusca) {
       data = data.filter(
         (item) => (item.canal || "").toLowerCase() === canalBusca.toLowerCase()
       );
     }
-
-    // Filtro parcial (busca livre) para campo selecionado
     if (termo) {
       data = data.filter((item) => {
         const valorCampo = String(item[filtro] || "").toLowerCase();
         return valorCampo.includes(termo.toLowerCase());
       });
     }
-
-    setHistorico(data.slice(page * 20, page * 20 + 20)); // paginação no frontend
+    setHistorico(data.slice(pagina * rowsPerPage, pagina * rowsPerPage + rowsPerPage));
     setLastVisible(snapshot.docs[snapshot.docs.length - 1] || null);
   }
-
 
   useEffect(() => {
     buscar(0, null);
@@ -115,33 +112,17 @@ export default function HistoricoConsultas({ usuario }) {
     setOrderByField(property);
   };
 
-  // Exporta dados filtrados para CSV
   function exportarCSV() {
     if (!historico.length) return;
-    const colunas = [
-      "Descrição",
-      "SKU",
-      "EAN",
-      "Canal",
-      "Custo",
-      "Preço Venda",
-      "Data/Hora"
-    ];
-    const linhas = historico.map(h =>
-      [
-        h.descricao || "",
-        h.sku || "",
-        h.ean || "",
-        h.canal || "",
-        h.precoCusto || "",
-        h.precoVenda || "",
-        h.criadoEm
-          ? new Date(h.criadoEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
-          : "s/d"
-      ].map(item =>
-        typeof item === "string" && item.includes(",") ? `"${item}"` : item
-      ).join(",")
-    );
+    const colunas = colunasVisiveis.map(col => col.label);
+    const linhas = historico.map(h => colunasVisiveis.map(col => {
+      let valor = h[col.id] || "";
+      if (col.id === "criadoEm" && valor)
+        valor = new Date(valor).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+      if (typeof valor === "string" && valor.includes(","))
+        return `"${valor}"`;
+      return valor;
+    }).join(","));
     const textoCSV = [colunas.join(","), ...linhas].join("\r\n");
     const blob = new Blob([textoCSV], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -155,123 +136,129 @@ export default function HistoricoConsultas({ usuario }) {
   }
 
   return (
-    <Card sx={{ mb: 2 }}>
-      <CardContent>
-        <Typography variant="h6" gutterBottom>
-          Histórico de Precificações
-        </Typography>
-        <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+    <Paper sx={{ p: { xs: 1, sm: 3 }, mt: 2, mb: 2 }}>
+      <Typography variant="h6" fontWeight={700} gutterBottom>
+        Histórico de Precificações
+      </Typography>
+      {/* GRID DE FILTROS RESPONSIVO */}
+      <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={3}>
           <TextField
             select
-            label="Filtro campo"
             value={filtro}
-            onChange={(e) => setFiltro(e.target.value)}
-            sx={{ width: 120 }}
+            label="Campo"
+            fullWidth
+            size="small"
+            onChange={e => setFiltro(e.target.value)}
           >
             {camposFiltro.map((op) => (
               <MenuItem key={op.value} value={op.value}>{op.label}</MenuItem>
             ))}
           </TextField>
+        </Grid>
+        <Grid item xs={12} sm={3}>
           <TextField
-            label="Busca"
             value={termo}
-            onChange={(e) => setTermo(e.target.value)}
-            sx={{ width: 160 }}
+            label="Busca"
+            fullWidth
+            size="small"
+            onChange={e => setTermo(e.target.value)}
           />
+        </Grid>
+        <Grid item xs={12} sm={3}>
           <TextField
             select
-            label="Canal"
             value={canalBusca}
-            onChange={(e) => setCanalBusca(e.target.value)}
-            sx={{ width: 135 }}
+            label="Canal"
+            fullWidth
+            size="small"
+            onChange={e => setCanalBusca(e.target.value)}
+            slotProps={{
+              inputLabel: { shrink: true },
+              select: {
+                displayEmpty: true,
+                renderValue: (selected) => selected ? selected : "Todos"
+              }
+            }}
           >
             {canaisFiltro.map((op, i) => (
-              <MenuItem key={i} value={op}>{op || "Todos"}</MenuItem>
+              <MenuItem key={i} value={op}>
+                {op || "Todos"}
+              </MenuItem>
             ))}
           </TextField>
+        </Grid>
+        <Grid item xs={6} sm={1.5}>
           <Button
+            fullWidth
             variant="contained"
             onClick={() => buscar(0, null)}
-            sx={{ height: 56 }}
+            sx={{ minWidth: 90, height: 40 }}
           >
             Buscar
           </Button>
+        </Grid>
+        <Grid item xs={6} sm={1.5}>
           <Button
+            fullWidth
             variant="outlined"
-            color="secondary"
-            sx={{ height: 56 }}
             onClick={exportarCSV}
-            disabled={!historico.length}
+            sx={{ minWidth: 90, height: 40 }}
           >
             Exportar CSV
           </Button>
-        </Box>
-        <Paper sx={{ width: '100%', overflowX: 'auto' }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                {[
-                  { id: "descricao", label: "Descrição" },
-                  { id: "sku", label: "SKU" },
-                  { id: "ean", label: "EAN" },
-                  { id: "canal", label: "Canal" },
-                  { id: "precoCusto", label: "Custo" },
-                  { id: "precoVenda", label: "Preço Venda" },
-                  { id: "criadoEm", label: "Data/Hora" },
-                ].map((col) => (
-                  <TableCell
-                    key={col.id}
-                    sortDirection={orderByField === col.id ? orderDirection : false}
-                    align={
-                      ["precoCusto", "precoVenda"].includes(col.id) ? "right" : "left"
-                    }
+        </Grid>
+      </Grid>
+      {/* TABELA RESPONSIVA */}
+      <Box sx={{ width: "100%", overflowX: "auto" }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              {colunasVisiveis.map((col) => (
+                <TableCell key={col.id}>
+                  <TableSortLabel
+                    active={orderByField === col.id}
+                    direction={orderDirection}
+                    onClick={() => handleRequestSort(col.id)}
                   >
-                    <TableSortLabel
-                      active={orderByField === col.id}
-                      direction={orderByField === col.id ? orderDirection : "asc"}
-                      onClick={() => handleRequestSort(col.id)}
-                    >
-                      {col.label}
-                    </TableSortLabel>
+                    {col.label}
+                  </TableSortLabel>
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {historico.map((h, i) => (
+              <TableRow key={i}>
+                {colunasVisiveis.map((col) => (
+                  <TableCell key={col.id}>
+                    {col.id === "criadoEm"
+                      ? (h.criadoEm
+                          ? new Date(h.criadoEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
+                          : "s/d")
+                      : (h[col.id] || "")}
                   </TableCell>
                 ))}
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {historico.map((h) => (
-                <TableRow key={h.id}>
-                  <TableCell>{h.descricao || ""}</TableCell>
-                  <TableCell>{h.sku || ""}</TableCell>
-                  <TableCell>{h.ean || ""}</TableCell>
-                  <TableCell>{h.canal || ""}</TableCell>
-                  <TableCell align="right">{h.precoCusto || ""}</TableCell>
-                  <TableCell align="right">{h.precoVenda || ""}</TableCell>
-                  <TableCell>
-                    {h.criadoEm
-                      ? new Date(h.criadoEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
-                      : "s/d"}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!historico.length && (
-                <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    Nenhum resultado.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Paper>
-        <TablePagination
-          component="div"
-          count={count}
-          page={page}
-          onPageChange={handleChangePage}
-          rowsPerPage={20}
-          rowsPerPageOptions={[20]}
-        />
-      </CardContent>
-    </Card>
+            ))}
+            {!historico.length && (
+              <TableRow>
+                <TableCell colSpan={colunasVisiveis.length} align="center">
+                  Nenhum resultado.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Box>
+      <TablePagination
+        component="div"
+        count={count}
+        page={page}
+        onPageChange={handleChangePage}
+        rowsPerPage={rowsPerPage}
+        rowsPerPageOptions={[rowsPerPage]}
+      />
+    </Paper>
   );
 }

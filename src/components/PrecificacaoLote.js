@@ -5,6 +5,7 @@ import { collection, addDoc } from "firebase/firestore";
 import { Card, CardContent, Button, Typography, Alert, Box } from "@mui/material";
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DownloadIcon from '@mui/icons-material/Download';
+
 import {
   calcularTarifaFixaML,
   calcularPrecoVenda
@@ -16,20 +17,12 @@ export default function PrecificacaoLote({ usuario }) {
   const [success, setSuccess] = useState(false);
   const [msg, setMsg] = useState("");
 
+  // Download do modelo igual ao exemplo anterior
   function downloadModeloPlanilha(e) {
     e.preventDefault();
     const header = [
-      "descricao",
-      "sku",
-      "ean",
-      "precoCusto",
-      "canal",
-      "tipoAnuncio",
-      "comissao",
-      "tarifaFixa",
-      "custoFixo",
-      "imposto",
-      "lucro"
+      "descricao", "sku", "ean", "precoCusto", "canal",
+      "tipoAnuncio", "comissao", "tarifaFixa", "custoFixo", "imposto", "lucro"
     ];
     const exemplos = [
       ["Shampoo Exemplo 1", "1234567", "000000111111", "10.00", "Mercado Livre", "Clássico", "12", "6.75", "6", "10", "10"],
@@ -39,18 +32,15 @@ export default function PrecificacaoLote({ usuario }) {
     let csv = [header.join(",")].concat(exemplos.map(row => row.join(","))).join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-
     const a = document.createElement('a');
     a.href = url;
     a.download = "modelo_precificacao.csv";
-    document.body.appendChild(a);
+    document.body.appendChild(a); // faz funcionar no Safari
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 
-
-  // Mapeia campos da planilha para padrão camelCase do sistema
   function calcularLinha(row) {
     const descricao = row["descricao"] ?? "";
     const sku = row["sku"] ?? "";
@@ -66,7 +56,7 @@ export default function PrecificacaoLote({ usuario }) {
 
     const dadosLinha = {
       precoCusto,
-      frete: "", // ajuste se quiser receber na planilha futuramente
+      frete: "",
       comissao,
       imposto,
       lucro,
@@ -79,6 +69,7 @@ export default function PrecificacaoLote({ usuario }) {
     let tarifaFixaFinal = canal === "Mercado Livre"
       ? calcularTarifaFixaML(precoVenda)
       : tarifaFixa;
+
     return {
       descricao,
       sku,
@@ -96,45 +87,66 @@ export default function PrecificacaoLote({ usuario }) {
     };
   }
 
+  async function processarLinhas(planilha) {
+    const required = ["descricao", "sku", "ean", "precoCusto", "canal"];
+    const faltaCabecalho = planilha.length === 0 || required.some(col => !Object.keys(planilha[0]).includes(col));
+    if (faltaCabecalho) {
+      setMsg("O arquivo selecionado não segue o modelo do sistema. Baixe e use o modelo oficial.");
+      setSuccess(false);
+      return;
+    }
+    const processada = planilha.map(calcularLinha);
+    setPreview(processada.slice(0, 5));
+    setSuccess(true);
+    setMsg("");
+
+    for (const produto of processada) {
+      await addDoc(collection(db, "historico_precificacao"), {
+        ...produto,
+        usuario: usuario.email,
+        criadoEm: new Date().toISOString()
+      });
+    }
+  }
+
   async function processarPlanilha() {
-    if (!file) return setMsg("Selecione um arquivo.");
+    if (!file) {
+      setMsg("Selecione um arquivo.");
+      setSuccess(false);
+      return;
+    }
     setSuccess(false);
     setMsg("");
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      const wb = XLSX.read(evt.target.result, { type: 'array' });
+
+    if (file.name.endsWith('.csv')) {
+      const data = await file.arrayBuffer();
+      const text = new TextDecoder('utf-8').decode(data);
+      // SheetJS usa , por padrão; para arquivos exportados com ;, tente { FS: ';' }
+      const wb = XLSX.read(text, { type: 'string', FS: ';' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       let planilha = XLSX.utils.sheet_to_json(ws, { defval: "" });
-      // Validação: verificar se as colunas mínimas existem
-      const required = ["descricao", "sku", "ean", "precoCusto", "canal"];
-      const faltaCabecalho = planilha.length === 0 || required.some(col => !Object.keys(planilha[0]).includes(col));
-      if (faltaCabecalho) {
-        setMsg("O arquivo selecionado não segue o modelo do sistema. Baixe e use o modelo oficial.");
-        return;
-      }
-      const processada = planilha.map(calcularLinha);
-      setPreview(processada.slice(0, 5));
-      setSuccess(true);
-      // Salva cada linha no Firestore
-      for (const produto of processada) {
-        await addDoc(collection(db, "historico_precificacao"), {
-          ...produto,
-          usuario: usuario.email,
-          criadoEm: new Date().toISOString()
-        });
-      }
-    };
-    reader.readAsArrayBuffer(file);
+      await processarLinhas(planilha);
+    } else {
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        const wb = XLSX.read(evt.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        let planilha = XLSX.utils.sheet_to_json(ws, { defval: "" });
+        await processarLinhas(planilha);
+      };
+      reader.readAsArrayBuffer(file);
+    }
   }
 
   return (
-    <Card sx={{ mb: 2 }}>
+    <Card sx={{ maxWidth: 760, mx: 'auto', my: 2 }}>
       <CardContent>
-        <Typography variant="h6" gutterBottom>Precificação em Lote (Planilha)</Typography>
+        <Typography variant="h6" fontWeight={700} gutterBottom>
+          Precificação em Lote
+        </Typography>
         <Alert severity="info" sx={{ mb: 2 }}>
           Faça o download do <b>modelo de planilha</b> abaixo, preencha com seus produtos e importe sem alterar os nomes das colunas!
         </Alert>
-        
         <Typography variant="body2" sx={{ mt: 1 }}>
           Baixe o&nbsp;
           <a
@@ -146,54 +158,90 @@ export default function PrecificacaoLote({ usuario }) {
             }}
             onClick={downloadModeloPlanilha}
           >
-            modelo de planilha CSV <DownloadIcon fontSize="small" style={{marginBottom: -3}}/>
+            modelo de planilha CSV <DownloadIcon fontSize="small" style={{marginBottom: 5}}/>
           </a>
-          &nbsp;para preenchimento.
         </Typography>
-
-        <Button
-          component="label"
-          variant="outlined"
-          startIcon={<UploadFileIcon />}
-          sx={{ mr: 2 }}
-        >
-          Anexar planilha preenchida
-          <input type="file" accept=".xlsx,.xls,.csv" hidden onChange={e => setFile(e.target.files[0])} />
-        </Button>
-
-        <Button
-          color="success"
-          variant="contained"
-          onClick={processarPlanilha}
-          startIcon={<DownloadIcon />}
-          sx={{ ml: 1 }}
-        >
-          Processar e Salvar
-        </Button>
-        {success && <Alert severity="success" sx={{ mt: 2 }}>Processado e salvo! Veja prévia abaixo.</Alert>}
-        {msg && <Alert severity="warning" sx={{ mt: 2 }}>{msg}</Alert>}
-        {preview.length > 0 &&
-          <Box sx={{ mt: 2, overflow: 'auto', maxHeight: 220 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Prévia dos primeiros produtos:</Typography>
-            <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  {Object.keys(preview[0]).map(k => (
-                    <th key={k} style={{ textAlign: 'left', borderBottom: '1px solid #eee', padding: '4px 8px' }}>{k}</th>
+        <Box display="flex" flexDirection={{ xs: "column", sm: "row" }} alignItems="center" gap={2} mb={2}>
+          <Button
+            variant="outlined"
+            color="primary"
+            component="label"
+            startIcon={<UploadFileIcon />}
+            sx={{
+              minWidth: 180,
+              textTransform: 'none',
+              fontWeight: 500,
+              mb: { xs: 2, sm: 0 }
+            }}
+          >
+            Anexar planilha
+            <input
+              type="file"
+              hidden
+              onChange={e => setFile(e.target.files[0])}
+              accept=".csv, .xlsx"
+            />
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<DownloadIcon />}
+            sx={{
+              minWidth: 180,
+              textTransform: 'none',
+              fontWeight: 500,
+              boxShadow: 2
+            }}
+            onClick={processarPlanilha}
+          >
+            Processar e Salvar
+          </Button>
+        </Box>
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Processado e salvo! Veja prévia abaixo.
+          </Alert>
+        )}
+        {msg && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            {msg}
+          </Alert>
+        )}
+        {preview.length > 0 && (
+          <Box mt={2}>
+            <Typography variant="subtitle2" mb={1}>
+              Prévia dos primeiros produtos:
+            </Typography>
+            <Box component="table" sx={{ width: '100%', borderSpacing: 0 }}>
+              <Box component="thead">
+                <Box component="tr">
+                  {Object.keys(preview[0]).map((k, idx) => (
+                    <Box
+                      component="th"
+                      key={idx}
+                      sx={{ textAlign: "left", pr: 2, borderBottom: 1, fontWeight: 700, fontSize: 12 }}
+                    >
+                      {k}
+                    </Box>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </Box>
+              </Box>
+              <Box component="tbody">
                 {preview.map((row, idx) => (
-                  <tr key={idx} style={{ background: idx % 2 ? '#f9f9f9' : '' }}>
+                  <Box component="tr" key={idx}>
                     {Object.values(row).map((val, j) =>
-                      <td key={j} style={{ padding: '4px 8px' }}>{val?.toString()}</td>)}
-                  </tr>
+                      <Box
+                        component="td"
+                        key={j}
+                        sx={{ fontSize: 12, pr: 2, py: 0.5 }}
+                      >{val?.toString()}</Box>
+                    )}
+                  </Box>
                 ))}
-              </tbody>
-            </table>
+              </Box>
+            </Box>
           </Box>
-        }
+        )}
       </CardContent>
     </Card>
   );
