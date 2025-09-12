@@ -136,11 +136,16 @@ export default function PrecificacaoIndividual({ usuario }) {
   function handleDados(field, value) {
     setDados((prev) => ({ ...prev, [field]: value }));
   }
+
   function handleCanal(canal, field, value) {
-    setCanalState((prev) => ({
-      ...prev,
-      [canal]: { ...prev[canal], [field]: value }
-    }));
+    setCanalState((prev) => {
+      let novo = { ...prev[canal], [field]: value };
+      // Se mudar o tipo em ML, aplica comissão sugerida automaticamente
+      if (canal === "Mercado Livre" && field === "tipo") {
+        novo.comissao = REGRAS["Mercado Livre"].comissao[value] ?? "";
+      }
+      return { ...prev, [canal]: novo };
+    });
   }
 
   async function salvarTodos() {

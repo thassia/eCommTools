@@ -44,7 +44,7 @@ export default function HistoricoConsultas({ usuario }) {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const colunasVisiveis = isMobile
-    ? [colunasTabela[0], colunasTabela[6]] // Só "Descrição" e "Data/Hora" no mobile
+    ? [colunasTabela[0], colunasTabela[5], colunasTabela[6]] // Só "Descrição", "Preço" e "Data" no mobile
     : colunasTabela;
 
   useEffect(() => {
