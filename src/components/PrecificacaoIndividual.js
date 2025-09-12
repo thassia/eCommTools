@@ -1,25 +1,18 @@
-import { useState } from "react";
-import { db } from "@/lib/firebase";
-import { collection, addDoc } from "firebase/firestore";
-import { Card, CardContent, TextField, Button, Typography, Alert, Box, MenuItem } from "@mui/material";
-
+import React, { useState } from "react";
 import {
-  sugestaoComissoes,
-  calcularTarifaFixaML,
-  calcularPrecoVenda
-} from "@/core/precificacao/precificacaoCalculos";
-
-const canais = ["Mercado Livre", "Shopee", "TikTok"];
-const tiposML = ["Clássico", "Premium"];
+  Card, CardContent, TextField, Button, Typography, Box, MenuItem, Paper, Table, TableBody, TableCell, TableHead, TableRow, Alert
+} from "@mui/material";
+import { collection, addDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 // Função universal PT-BR para aceitar vírgula ou ponto como decimal:
 function normalizaNumero(valor) {
   if (typeof valor === "number") return valor;
   if (!valor) return 0;
   let val = String(valor)
-    .replace(/[^\d.,\-]+/g, "")  // Remove tudo menos número, ponto, vírgula e sinal
-    .replace(/\s/g, "")          // Remove espaços
-    .replace(/\./g, "");         // Remove pontos de milhar
+    .replace(/[^\d.,\-]+/g, "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "");
   const idx = val.lastIndexOf(",");
   if (idx !== -1) {
     val = val.slice(0, idx) + "." + val.slice(idx + 1);
@@ -27,272 +20,260 @@ function normalizaNumero(valor) {
   return Number(val) || 0;
 }
 
+// Sugestão de comissões, tarifas e tipos de anúncio
+const REGRAS = {
+  "Mercado Livre": {
+    tipoAnuncio: ["Clássico", "Premium"],
+    comissao: { "Clássico": 12, "Premium": 16 },
+    tarifaFixa: (precoVenda) => precoVenda > 79 ? 0 : 5,
+  },
+  Shopee: {
+    comissao: 20,
+    tarifaFixa: 4,
+  },
+  TikTok: {
+    comissao: 12,
+    tarifaFixa: 2,
+  }
+};
+const CANAIS = ["Mercado Livre", "Shopee", "TikTok"];
+
 export default function PrecificacaoIndividual({ usuario }) {
+  // Dados base únicos
   const [dados, setDados] = useState({
     descricao: "",
     sku: "",
     ean: "",
-    canal: "",
-    tipoAnuncio: "",
     precoCusto: "",
     frete: "",
     imposto: "10",
-    comissao: "",
     lucro: "10",
     custoFixo: "6",
-    tarifaFixa: "",
   });
-  const [resultado, setResultado] = useState(null);
-  const [sucesso, setSucesso] = useState(false);
-  const [avisoML, setAvisoML] = useState("");
-  const [freteErro, setFreteErro] = useState(false);
 
-  function handleChange(field, value) {
-    let val = value;
-    // Para campos numéricos, só deixa ponto/virgula no texto e leave it as is
-    if (["precoCusto", "frete", "imposto", "lucro", "custoFixo", "tarifaFixa", "comissao"].includes(field)) {
-      val = val.replace(/[^0-9.,\-]/g, ""); // limita digitação do usuário
-    }
+  // Estado específico de canais (comissão personalizada etc)
+  const [canalState, setCanalState] = useState({
+    "Mercado Livre": { tipo: "Clássico", comissao: 12, tarifa: 5 },
+    Shopee: { comissao: 20, tarifa: 4 },
+    TikTok: { comissao: 12, tarifa: 2 },
+  });
 
-    let novosDados = { ...dados, [field]: val };
+  const [resultados, setResultados] = useState({});
+  const [sucesso, setSucesso] = useState("");
+  const [erroML, setErroML] = useState(false);
 
-    if (field === "canal") {
-      if (value === "Mercado Livre") {
-        if (novosDados.tipoAnuncio)
-          novosDados.comissao = sugestaoComissoes["Mercado Livre"][novosDados.tipoAnuncio];
-        let pvPrev = calcularPrecoVenda({ ...novosDados, canal: "Mercado Livre" });
-        novosDados.tarifaFixa = calcularTarifaFixaML(pvPrev);
-      }
-      if (value === "Shopee") {
-        novosDados.tipoAnuncio = "";
-        novosDados.comissao = sugestaoComissoes["Shopee"];
-        novosDados.tarifaFixa = 4;
-      }
-      if (value === "TikTok") {
-        novosDados.tipoAnuncio = "";
-        novosDados.comissao = sugestaoComissoes["TikTok"];
-        novosDados.tarifaFixa = 2;
-      }
-      if (value !== "Mercado Livre") novosDados.tipoAnuncio = "";
-    }
-
-    if (field === "tipoAnuncio" && novosDados.canal === "Mercado Livre") {
-      novosDados.comissao = sugestaoComissoes["Mercado Livre"][value];
-      let pvPrev = calcularPrecoVenda(novosDados);
-      novosDados.tarifaFixa = calcularTarifaFixaML(pvPrev);
-    }
-
-    const camposARecalcular = [
-      "precoCusto", "frete", "comissao", "imposto", "lucro", "custoFixo"
-    ];
-    if (
-      novosDados.canal === "Mercado Livre" &&
-      camposARecalcular.includes(field)
-    ) {
-      let pvPrev = calcularPrecoVenda(novosDados);
-      novosDados.tarifaFixa = calcularTarifaFixaML(pvPrev);
-    }
-
-    setDados(novosDados);
-  }
-
-  function calcular() {
-    const entrada = {
-      ...dados,
-      precoCusto: normalizaNumero(dados.precoCusto),
-      frete: normalizaNumero(dados.frete),
-      imposto: normalizaNumero(dados.imposto),
-      comissao: normalizaNumero(dados.comissao),
-      lucro: normalizaNumero(dados.lucro),
-      custoFixo: normalizaNumero(dados.custoFixo),
-      tarifaFixa: normalizaNumero(dados.tarifaFixa),
+  // Calcula resultados para todos os canais (roda sempre que qualquer dado mudar)
+  function calcularResultados(newDados = dados, newCanalState = canalState) {
+    const inputsBase = {
+      precoCusto: normalizaNumero(newDados.precoCusto),
+      frete: normalizaNumero(newDados.frete),
+      imposto: normalizaNumero(newDados.imposto),
+      lucro: normalizaNumero(newDados.lucro),
+      custoFixo: normalizaNumero(newDados.custoFixo)
     };
+    const res = {};
 
-    let precoVenda = calcularPrecoVenda(entrada);
-    let tarifaFixaCorreta = parseFloat(calcularTarifaFixaML(precoVenda));
-    if (dados.canal === "Mercado Livre" && tarifaFixaCorreta !== parseFloat(dados.tarifaFixa)) {
-      setDados((prev) => ({ ...prev, tarifaFixa: tarifaFixaCorreta }));
-      precoVenda = calcularPrecoVenda({ ...entrada, tarifaFixa: tarifaFixaCorreta });
+    for (const canal of CANAIS) {
+      let tipo = newCanalState[canal]?.tipo || "";
+      let comissao = normalizaNumero(newCanalState[canal]?.comissao);
+      let tarifa = normalizaNumero(newCanalState[canal]?.tarifa);
+
+      // Regras especiais de ML (faixa tarifa fixa)
+      if (canal === "Mercado Livre") {
+        comissao = Number.isFinite(comissao) ? comissao : REGRAS[canal].comissao[tipo];
+        let precoPrev = calcularPrecoVenda(inputsBase, comissao, tarifa);
+        tarifa = REGRAS[canal].tarifaFixa(precoPrev);
+      }
+
+      let precoVenda = calcularPrecoVenda(inputsBase, comissao, tarifa);
+
+      res[canal] = {
+        tipo,
+        comissao,
+        tarifa,
+        precoVenda: precoVenda,
+        ...inputsBase
+      };
     }
-
-    if (dados.canal === "Mercado Livre" && precoVenda > 79) {
-      setAvisoML("ATENÇÃO: Para produtos acima de R$79 no Mercado Livre, a tarifa fixa é isenta e é obrigatório oferecer frete ao comprador!");
-      setFreteErro((normalizaNumero(dados.frete) || 0) === 0);
-    } else {
-      setAvisoML("");
-      setFreteErro(false);
-    }
-
-    setResultado({ ...entrada, precoVenda: precoVenda.toFixed(2) });
-    setSucesso(false);
+    setResultados(res);
+    // Alerta ML sem frete recomendado
+    if (res["Mercado Livre"] && res["Mercado Livre"].precoVenda > 79 && !inputsBase.frete) {
+      setErroML(true);
+    } else setErroML(false);
   }
 
-  async function salvarFirestore() {
-    if (!resultado) return;
-    try {
+  // Cálculo do preço
+  function calcularPrecoVenda(entrada, comissao, tarifaFixa) {
+    // Exemplo: você pode customizar sua fórmula aqui
+    const {
+      precoCusto = 0,
+      frete = 0,
+      imposto = 0,
+      lucro = 0,
+      custoFixo = 0
+    } = entrada;
+    comissao = comissao || 0;
+    tarifaFixa = tarifaFixa || 0;
+
+    // Fórmula realista genérica!
+    const margem = (Number(lucro) / 100);
+    let pv = (Number(precoCusto) + Number(frete) + Number(custoFixo) + Number(tarifaFixa));
+    pv = pv / ((100 - Number(imposto) - Number(comissao) - Number(lucro)) / 100);
+    return Math.max(0, Math.round((pv + Number.EPSILON) * 100) / 100);
+  }
+
+  // Hook: sempre recalcula se mudar qualquer campo
+  React.useEffect(() => {
+    calcularResultados(dados, canalState);
+    // eslint-disable-next-line
+  }, [dados, canalState]);
+
+  // Atualizador de campos base
+  function handleDados(field, value) {
+    setDados((prev) => ({ ...prev, [field]: value }));
+  }
+
+  // Atualizador de canal
+  function handleCanal(canal, field, value) {
+    setCanalState((prev) => ({
+      ...prev,
+      [canal]: { ...prev[canal], [field]: value }
+    }));
+  }
+
+  // Salvar
+  async function salvarTodos() {
+    let promises = CANAIS.map(async (canal) => {
+      const result = resultados[canal];
       await addDoc(collection(db, "historico_precificacao"), {
-        ...resultado,
+        canal,
+        ...dados,
+        ...canalState[canal],
+        ...result,
         usuario: usuario.email,
         criadoEm: new Date().toISOString(),
       });
-      setSucesso(true);
-    } catch (err) {
-      alert("Erro ao gravar Firestore: " + (err.message || String(err)));
-    }
+    });
+    await Promise.all(promises);
+    setSucesso("Salvo no histórico para todos os canais!");
   }
 
   return (
-    <Card sx={{ maxWidth: 650, mx: 'auto', mt: 3 }}>
+    <Card sx={{ maxWidth: 940, mx: 'auto', mt: 3 }}>
       <CardContent>
         <Typography variant="h6" fontWeight={700} gutterBottom>
-          Precificação de Produto Único
+          Precificação Multicanal
         </Typography>
-        <Box component="form" onSubmit={e => { e.preventDefault(); calcular(); }}>
-          <Box display="flex" flexWrap="wrap" gap={2} mb={2}>
-            <TextField label="SKU" value={dados.sku} onChange={e => handleChange("sku", e.target.value)} sx={{ width: 120 }} />
-            <TextField label="EAN" value={dados.ean} onChange={e => handleChange("ean", e.target.value)} sx={{ width: 120 }} />
-            <TextField label="Descrição" value={dados.descricao} onChange={e => handleChange("descricao", e.target.value)} sx={{ width: 240 }} />
-            <TextField
-              label="Preço custo"
-              value={dados.precoCusto}
-              onChange={e => handleChange("precoCusto", e.target.value)}
-              sx={{ width: 140 }}
-              slotProps={{
-                input: {
-                  inputMode: 'decimal',
-                  pattern: '[0-9]*[.,]?[0-9]*'
-                }
-              }}
-            />
-            <TextField
-              select
-              label="Canal"
-              value={dados.canal}
-              onChange={e => handleChange("canal", e.target.value)}
-              sx={{ width: 140 }}
-            >
-              {canais.map((op) => (
-                <MenuItem key={op} value={op}>{op}</MenuItem>
-              ))}
-            </TextField>
-            {dados.canal === "Mercado Livre" && (
-              <TextField
-                select
-                label="Tipo anúncio ML"
-                value={dados.tipoAnuncio}
-                onChange={e => handleChange("tipoAnuncio", e.target.value)}
-                sx={{ width: 140 }}
-              >
-                {tiposML.map((t) => (
-                  <MenuItem key={t} value={t}>{t}</MenuItem>
-                ))}
-              </TextField>
-            )}
-            <TextField
-              label="Comissão (%)"
-              value={dados.comissao}
-              onChange={e => handleChange("comissao", e.target.value)}
-              sx={{ width: 120 }}
-              slotProps={{
-                input: {
-                  inputMode: 'decimal',
-                  pattern: '[0-9]*[.,]?[0-9]*'
-                }
-              }}
-            />
-            <TextField
-              label="Tarifa fixa"
-              value={dados.tarifaFixa}
-              onChange={e => handleChange("tarifaFixa", e.target.value)}
-              sx={{ width: 120 }}
-              slotProps={{
-                input: {
-                  inputMode: 'decimal',
-                  pattern: '[0-9]*[.,]?[0-9]*'
-                }
-              }}
-            />
-            <TextField
-              label="Frete (R$)"
-              value={dados.frete}
-              onChange={e => handleChange("frete", e.target.value)}
-              sx={{ width: 120 }}
-              error={freteErro}
-              helperText={freteErro ? "Frete obrigatório no ML acima de R$79" : ""}
-              slotProps={{
-                input: {
-                  inputMode: 'decimal',
-                  pattern: '[0-9]*[.,]?[0-9]*'
-                }
-              }}
-            />
-            <TextField
-              label="Imposto (%)"
-              value={dados.imposto}
-              onChange={e => handleChange("imposto", e.target.value)}
-              sx={{ width: 120 }}
-              slotProps={{
-                input: {
-                  inputMode: 'decimal',
-                  pattern: '[0-9]*[.,]?[0-9]*'
-                }
-              }}
-            />
-            <TextField
-              label="Custo fixo (R$)"
-              value={dados.custoFixo}
-              onChange={e => handleChange("custoFixo", e.target.value)}
-              sx={{ width: 120 }}
-              slotProps={{
-                input: {
-                  inputMode: 'decimal',
-                  pattern: '[0-9]*[.,]?[0-9]*'
-                }
-              }}
-            />
-            <TextField
-              label="Lucro (%)"
-              value={dados.lucro}
-              onChange={e => handleChange("lucro", e.target.value)}
-              sx={{ width: 120 }}
-              slotProps={{
-                input: {
-                  inputMode: 'decimal',
-                  pattern: '[0-9]*[.,]?[0-9]*'
-                }
-              }}
-            />
-          </Box>
-          <Button variant="contained" color="primary" type="submit" sx={{ minWidth: 160, mb: 1 }}>
-            Calcular
-          </Button>
+        {/* Formulário base */}
+        <Box display="flex" flexWrap="wrap" gap={2} mb={2}>
+          <TextField label="SKU" value={dados.sku} onChange={e => handleDados("sku", e.target.value)} sx={{ width: 120 }} />
+          <TextField label="EAN" value={dados.ean} onChange={e => handleDados("ean", e.target.value)} sx={{ width: 120 }} />
+          <TextField label="Descrição" value={dados.descricao} onChange={e => handleDados("descricao", e.target.value)} sx={{ width: 200 }} />
+          <TextField label="Preço custo" value={dados.precoCusto}
+            onChange={e => handleDados("precoCusto", e.target.value)}
+            sx={{ width: 120 }}
+            slotProps={{ input: { inputMode: 'decimal', pattern: '[0-9]*[.,]?[0-9]*' } }} />
+          <TextField label="Frete (R$)" value={dados.frete}
+            onChange={e => handleDados("frete", e.target.value)}
+            sx={{ width: 120 }}
+            slotProps={{ input: { inputMode: 'decimal', pattern: '[0-9]*[.,]?[0-9]*' } }} />
+          <TextField label="Imposto (%)" value={dados.imposto}
+            onChange={e => handleDados("imposto", e.target.value)}
+            sx={{ width: 120 }}
+            slotProps={{ input: { inputMode: 'decimal', pattern: '[0-9]*[.,]?[0-9]*' } }} />
+          <TextField label="Custo Fixo (R$)" value={dados.custoFixo}
+            onChange={e => handleDados("custoFixo", e.target.value)}
+            sx={{ width: 120 }}
+            slotProps={{ input: { inputMode: 'decimal', pattern: '[0-9]*[.,]?[0-9]*' } }} />
+          <TextField label="Lucro (%)" value={dados.lucro}
+            onChange={e => handleDados("lucro", e.target.value)}
+            sx={{ width: 120 }}
+            slotProps={{ input: { inputMode: 'decimal', pattern: '[0-9]*[.,]?[0-9]*' } }} />
         </Box>
 
-        {avisoML && (
-          <Alert severity={freteErro ? "error" : "warning"} sx={{ my: 2 }}>
-            {avisoML}
+        {/* Aviso ML */}
+        {erroML && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Mercado Livre: Para produtos acima de R$79, a tarifa fixa é isenta e é obrigatório oferecer frete ao comprador!
           </Alert>
         )}
 
-        {resultado && (
-          <Box mt={2}>
-            <Typography>
-              <b>Preço sugerido de venda:</b> R$ {resultado.precoVenda}
-            </Typography>
-            <Button
-              variant="outlined"
-              color="success"
-              sx={{ mt: 2 }}
-              onClick={salvarFirestore}
-            >
-              Salvar no histórico
-            </Button>
-          </Box>
-        )}
+        {/* Tabela resultados */}
+        <Box width="100%" sx={{ overflowX: "auto" }}>
+          <Paper sx={{ width: "100%", minWidth: 650 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell><b>Canal</b></TableCell>
+                  <TableCell align="center"><b>Tipo Anúncio</b></TableCell>
+                  <TableCell align="center"><b>Comissão (%)</b></TableCell>
+                  <TableCell align="center"><b>Tarifa Fixa</b></TableCell>
+                  <TableCell align="center"><b>Preço sugerido</b></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {CANAIS.map((canal) => (
+                  <TableRow key={canal}>
+                    <TableCell><b>{canal}</b></TableCell>
+                    <TableCell align="center">
+                      {canal === "Mercado Livre" ? (
+                        <TextField
+                          select
+                          value={canalState[canal].tipo}
+                          onChange={e => handleCanal(canal, "tipo", e.target.value)}
+                          size="small"
+                          sx={{ minWidth: 100 }}
+                        >
+                          {REGRAS["Mercado Livre"].tipoAnuncio.map(tipo =>
+                            <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
+                          )}
+                        </TextField>
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
+                    <TableCell align="center">
+                      <TextField
+                        value={canalState[canal].comissao}
+                        onChange={e => handleCanal(canal, "comissao", e.target.value)}
+                        size="small"
+                        sx={{ width: 80 }}
+                        slotProps={{ input: { inputMode: 'decimal', pattern: '[0-9]*[.,]?[0-9]*' } }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <TextField
+                        value={canalState[canal].tarifa}
+                        onChange={e => handleCanal(canal, "tarifa", e.target.value)}
+                        size="small"
+                        sx={{ width: 80 }}
+                        slotProps={{ input: { inputMode: 'decimal', pattern: '[0-9]*[.,]?[0-9]*' } }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      {resultados[canal] && resultados[canal].precoVenda > 0 &&
+                        `R$ ${resultados[canal].precoVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+        </Box>
+
+        <Button
+          variant="contained"
+          color="success"
+          size="large"
+          sx={{ mt: 3 }}
+          onClick={salvarTodos}
+        >
+          Salvar todos os canais no histórico
+        </Button>
 
         {sucesso && (
           <Alert severity="success" sx={{ mt: 2 }}>
-            Salvo no histórico com sucesso!
+            {sucesso}
           </Alert>
         )}
       </CardContent>
