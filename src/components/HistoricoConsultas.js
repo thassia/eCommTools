@@ -9,6 +9,7 @@ import {
   TableSortLabel, TablePagination, Grid, useMediaQuery
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
+import { formatarReal } from '@/utils/format';
 
 const canaisFiltro = ["", "Mercado Livre", "Shopee", "TikTok"];
 const camposFiltro = [
@@ -146,7 +147,7 @@ export default function HistoricoConsultas({ usuario }) {
           <TextField
             select
             value={filtro}
-            label="Campo"
+            label="Tipo Busca"
             fullWidth
             size="small"
             onChange={e => setFiltro(e.target.value)}
@@ -159,7 +160,7 @@ export default function HistoricoConsultas({ usuario }) {
         <Grid item xs={12} sm={3}>
           <TextField
             value={termo}
-            label="Busca"
+            label="termo procurado"
             fullWidth
             size="small"
             onChange={e => setTermo(e.target.value)}
@@ -234,9 +235,12 @@ export default function HistoricoConsultas({ usuario }) {
                   <TableCell key={col.id}>
                     {col.id === "criadoEm"
                       ? (h.criadoEm
-                          ? new Date(h.criadoEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
-                          : "s/d")
-                      : (h[col.id] || "")}
+                        ? new Date(h.criadoEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
+                        : "s/d")
+                      : col.id === "precoVenda"
+                        ? formatarReal(h.precoVenda)
+                        : (h[col.id] || "")
+                    }
                   </TableCell>
                 ))}
               </TableRow>
