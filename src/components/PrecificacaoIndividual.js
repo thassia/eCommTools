@@ -173,12 +173,12 @@ export default function PrecificacaoIndividual({ usuario }) {
   ];
   const COLUNAS_DESKTOP = [
     { id: "canal", label: "Canal" },
+    { id: "precoVenda", label: "Preço Sugerido" },    
     { id: "tipo", label: "Tipo Anúncio"},
     { id: "comissao", label: "Comissão (%)"},
-    { id: "afiliado", label: "% Afiliado"},
-    { id: "frete", label: "Frete (R$)" },
     { id: "tarifa", label: "Tarifa Fixa" },
-    { id: "precoVenda", label: "Preço Sugerido" }
+    { id: "frete", label: "Frete (R$)" },
+    { id: "afiliado", label: "% Afiliado"}
   ];
   const colunasVisiveis = isMobile ? COLUNAS_MOBILE : COLUNAS_DESKTOP;
 
@@ -190,20 +190,20 @@ export default function PrecificacaoIndividual({ usuario }) {
         </Typography>
         {/* Formulário base */}
         <Box display="flex" flexWrap="wrap" gap={2} mb={2}>
-          <TextField label="SKU" value={dados.sku} onChange={e => handleDados("sku", e.target.value)} sx={{ width: isMobile ? "48%" : 120 }} size="small" />
-          <TextField label="EAN" value={dados.ean} onChange={e => handleDados("ean", e.target.value)} sx={{ width: isMobile ? "48%" : 120 }} size="small" />
-          <TextField label="Descrição" value={dados.descricao} onChange={e => handleDados("descricao", e.target.value)} sx={{ width: isMobile ? "100%" : 200 }} size="small" />
-          <TextField label="Preço custo" value={dados.precoCusto}
+          <TextField label="Produto" required value={dados.descricao} onChange={e => handleDados("descricao", e.target.value)} sx={{ width: isMobile ? "100%" : 200 }} size="small" />
+          <TextField label="Preço custo" required value={dados.precoCusto}
             onChange={e => handleDados("precoCusto", e.target.value)}
             sx={{ width: isMobile ? "48%" : 120 }}
             size="small"
             slotProps={{ input: { inputMode: 'decimal', pattern: '[0-9]*[.,]?[0-9]*' } }} />
-          <TextField label="Imposto (%)" value={dados.imposto}
+          <TextField label="SKU" value={dados.sku} onChange={e => handleDados("sku", e.target.value)} sx={{ width: isMobile ? "48%" : 120 }} size="small" />
+          <TextField label="EAN" value={dados.ean} onChange={e => handleDados("ean", e.target.value)} sx={{ width: isMobile ? "48%" : 120 }} size="small" />
+          <TextField label="Imposto (%)" required value={dados.imposto}
             onChange={e => handleDados("imposto", e.target.value)}
             sx={{ width: isMobile ? "48%" : 120 }}
             size="small"
             slotProps={{ input: { inputMode: 'decimal', pattern: '[0-9]*[.,]?[0-9]*' } }} />
-          <TextField label="Custo Fixo (R$)" value={dados.custoFixo}
+          <TextField label="Custo Fixo (R$)" required value={dados.custoFixo}
             onChange={e => handleDados("custoFixo", e.target.value)}
             sx={{ width: isMobile ? "48%" : 120 }}
             size="small"
@@ -235,6 +235,9 @@ export default function PrecificacaoIndividual({ usuario }) {
                   <TableRow key={canal}>
                     {colunasVisiveis.map(col => {
                       if (col.id === "canal") return <TableCell key="canal"><b>{canal}</b></TableCell>;
+                      if (col.id === "precoVenda") return <TableCell key="precoVenda">
+                        <b>{formatarReal(resultados[canal]?.precoVenda || 0)}</b>
+                      </TableCell>;
                       if (col.id === "tipo") return <TableCell key="tipo">{canal === "Mercado Livre" ?
                         <TextField select value={canalState[canal].tipo}
                           onChange={e => handleCanal(canal, "tipo", e.target.value)}
@@ -250,12 +253,8 @@ export default function PrecificacaoIndividual({ usuario }) {
                           size="small" sx={{ width: 80 }}
                           slotProps={{ input: { inputMode: 'decimal', pattern: '[0-9]*[.,]?[0-9]*' } }} />
                       </TableCell>;
-                      if (col.id === "afiliado") return <TableCell key="afiliado">
-                        <TextField
-                          value={canalState[canal].afiliado}
-                          onChange={e => handleCanal(canal, "afiliado", e.target.value)}
-                          size="small" sx={{ width: 80 }}
-                          slotProps={{ input: { inputMode: 'decimal', pattern: '[0-9]*[.,]?[0-9]*' } }} />
+                      if (col.id === "tarifa") return <TableCell key="tarifa">
+                        <TextField value={resultados[canal]?.tarifa ?? ""} size="small" sx={{ width: 80 }} disabled />
                       </TableCell>;
                       if (col.id === "frete") return <TableCell key="frete">
                         <TextField
@@ -268,11 +267,12 @@ export default function PrecificacaoIndividual({ usuario }) {
                           helperText={canal === "Mercado Livre" && erroML ? "Obrigatório" : ""}
                         />
                       </TableCell>;
-                      if (col.id === "tarifa") return <TableCell key="tarifa">
-                        <TextField value={resultados[canal]?.tarifa ?? ""} size="small" sx={{ width: 80 }} disabled />
-                      </TableCell>;
-                      if (col.id === "precoVenda") return <TableCell key="precoVenda">
-                        <b>{formatarReal(resultados[canal]?.precoVenda || 0)}</b>
+                      if (col.id === "afiliado") return <TableCell key="afiliado">
+                        <TextField
+                          value={canalState[canal].afiliado}
+                          onChange={e => handleCanal(canal, "afiliado", e.target.value)}
+                          size="small" sx={{ width: 80 }}
+                          slotProps={{ input: { inputMode: 'decimal', pattern: '[0-9]*[.,]?[0-9]*' } }} />
                       </TableCell>;
                       if (col.id === "detalhes") return (
                         <TableCell key="detalhes">
@@ -287,31 +287,31 @@ export default function PrecificacaoIndividual({ usuario }) {
                             <DialogTitle>Editar {canal}</DialogTitle>
                             <DialogContent>
                               {canal === "Mercado Livre" && (
-                                <TextField
-                                  select
-                                  label="Tipo Anúncio"
-                                  value={canalState[canal].tipo}
-                                  onChange={e => handleCanal(canal, "tipo", e.target.value)}
-                                  fullWidth sx={{ my: 1 }}>
-                                  {REGRAS["Mercado Livre"].tipoAnuncio.map(tipo =>
-                                    <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
-                                  )}
-                                </TextField>
+                              <TextField
+                                select
+                                label="Tipo Anúncio"
+                                value={canalState[canal].tipo}
+                                onChange={e => handleCanal(canal, "tipo", e.target.value)}
+                                fullWidth sx={{ my: 1 }}>
+                                {REGRAS["Mercado Livre"].tipoAnuncio.map(tipo =>
+                                  <MenuItem key={tipo} value={tipo}>{tipo}</MenuItem>
+                                )}
+                              </TextField>
                               )}
                               <TextField label="Comissão (%)" value={canalState[canal].comissao}
                                 onChange={e => handleCanal(canal, "comissao", e.target.value)}
                                 fullWidth sx={{ my: 1 }} />
-                              <TextField label="% Afiliado" value={canalState[canal].afiliado}
-                                onChange={e => handleCanal(canal, "afiliado", e.target.value)}
-                                fullWidth sx={{ my: 1 }} />
+                                <TextField label="Tarifa Fixa" value={resultados[canal]?.tarifa ?? ""}
+                                fullWidth sx={{ my: 1 }} disabled />
                               <TextField label="Frete (R$)" value={canalState[canal].frete}
                                 onChange={e => handleCanal(canal, "frete", e.target.value)}
                                 fullWidth sx={{ my: 1 }}
                                 error={canal === "Mercado Livre" && erroML}
                                 helperText={canal === "Mercado Livre" && erroML ? "Frete obrigatório ML > R$79" : ""}
                               />
-                              <TextField label="Tarifa Fixa" value={resultados[canal]?.tarifa ?? ""}
-                                fullWidth sx={{ my: 1 }} disabled />
+                              <TextField label="% Afiliado" value={canalState[canal].afiliado}
+                                onChange={e => handleCanal(canal, "afiliado", e.target.value)}
+                                fullWidth sx={{ my: 1 }} />
                             </DialogContent>
                             <DialogActions>
                               <Button onClick={fecharDetalhe} variant="contained">Fechar</Button>

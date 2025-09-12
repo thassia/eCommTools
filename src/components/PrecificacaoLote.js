@@ -168,18 +168,14 @@ export default function PrecificacaoLote({ usuario }) {
         <Typography variant="body2" color="text.secondary" mb={2}>
           Faça o download do modelo de planilha abaixo, preencha com seus produtos e importe sem alterar os nomes das colunas!
         </Typography>
-        <Box display="flex" flexDirection={{ xs: "column", sm: "row" }} alignItems="center" gap={2} mb={2}>
+        <Box display="flex" flexWrap="wrap" alignItems="center" gap={2} my={2}>
           <Button
             color="primary"
             variant="outlined"
             onClick={downloadModeloPlanilha}
             startIcon={<DownloadIcon />}
-            sx={{
-                minWidth: 180,
-                textTransform: 'none',
-                fontWeight: 500,
-                mb: { xs: 2, sm: 2 }
-              }}
+            size="large"
+            sx={{ minWidth: 220 }} // igual para todos
           >
             Download modelo
           </Button>
@@ -188,12 +184,8 @@ export default function PrecificacaoLote({ usuario }) {
             color="primary"
             component="label"
             startIcon={<UploadFileIcon />}
-            sx={{
-              minWidth: 180,
-              textTransform: 'none',
-              fontWeight: 500,
-              mb: { xs: 2, sm: 0 }
-            }}
+            size="large"
+            sx={{ minWidth: 220 }} // igual para todos
           >
             Anexar planilha
             <input
@@ -207,17 +199,14 @@ export default function PrecificacaoLote({ usuario }) {
             variant="contained"
             color="success"
             startIcon={<DownloadIcon />}
-            sx={{
-              minWidth: 180,
-              textTransform: 'none',
-              fontWeight: 500,
-              boxShadow: 2
-            }}
+            size="large"
+            sx={{ minWidth: 260, fontWeight: 500 }}
             onClick={processarPlanilha}
           >
             Processar e Salvar
           </Button>
         </Box>
+
         {success && (
           <Alert severity="success" sx={{ mb: 2 }}>
             Processado e salvo! Veja prévia abaixo.
