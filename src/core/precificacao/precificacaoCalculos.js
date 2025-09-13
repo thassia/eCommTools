@@ -35,12 +35,13 @@ export function calcularPrecoVenda({
   custoFixo = parseFloat(custoFixo) || 0;
   tarifaFixa = parseFloat(tarifaFixa) || 0;
 
-  let taxaOutros = (imposto + lucro + afiliado) / 100;
-  const taxaComissao = comissao / 100;
+  let taxaOutros = (imposto + lucro + custoFixo + afiliado) / 100;
 
   if (canal === "Mercado Livre") {
-    return (precoCusto + frete + tarifaFixa + custoFixo) / (1 - taxaOutros - taxaComissao);
+    const taxaComissao = comissao / 100;
+    return (precoCusto + frete + tarifaFixa) / (1 - taxaOutros - taxaComissao);
   }
-  let taxaTotal = taxaOutros + taxaComissao;
-  return (precoCusto + frete + tarifaFixa + custoFixo) / (1 - taxaTotal);
+  
+  let taxaTotal = taxaOutros + (comissao / 100);
+  return (precoCusto + frete + tarifaFixa) / (1 - taxaTotal);
 }
