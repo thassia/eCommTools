@@ -5,30 +5,32 @@ export async function gerarSugestoesAnuncio({ ean, nome, marca, categoria, urlFa
   ean: string; nome: string; marca: string; categoria: string; urlFabricante?: string
 }) {
   const prompt = `
-Você é um especialista em copywriting para e-commerce e marketplace. Crie uma descrição persuasiva, clara e vendedora para um 
-produto pensando na publicação em marketplaces líderes como Mercado Livre, Shopee e TikTok Shop.
+Você é um especialista em copywriting para e-commerce e marketplace.
+Crie uma resposta perfeita para cadastro em marketplaces brasileiros, considerando regras e políticas dos marketplaces.
 
-Com base em boas práticas e políticas dessas plataformas, gere sugestões otimizadas de conteúdo para vendas do seguinte produto:
+Seguindo a estrutura exata abaixo, responda SOMENTE neste formato e não inclua outras seções ou instruções:
+
+1. Título: Título otimizado, persuasivo, com marca e palavras-chave relevantes (máx. 60 caracteres)
+2. Descrição: Descrição comercial curta, focada nos tópicos:
+    Características principais: 
+    Diferenciais: benefícios, inovação, materiais
+    Indicação de uso: modo de uso ou aplicação (se houver informações do fabricante)
+3. Palavras-chave: {palavra1, palavra2, ...}
+4. Ficha técnica:
+- item 1
+- item 2
+5. FAQ:
+- Pergunta 1: resposta concisa
+- Pergunta 2: resposta concisa
+6. Observação final: Garantia de procedência e envio rápido. Tudo a pronta entrega!
+
+Use os dados do produto a seguir:
 EAN: ${ean}
 Nome: ${nome}
 Marca: ${marca}
 Categoria: ${categoria}
 
-Responda SEM incluir instruções, contato, links externos de lojas, marcas concorrentes ou informações proibidas pelas políticas dos marketplaces.
-Empregue linguagem clara, profissional e atraente, voltada para conversão rápida e confiança.
-
-1. Título otimizado, persuasivo, com marca e palavras-chave relevantes (máx. 60 caracteres)
-
-2. Descrição comercial curta, focada nos tópicos:
-    Características principais:
-    Diferenciais: (benefícios, inovação, materiais)
-    Modo de uso: (modo de uso ou aplicação)
-
-3. De 5 a 10 palavras-chave eficazes para busca do produto
-
-4. Ficha técnica resumida, em tópicos, apenas com dados concretos e relevantes
-
-No fim, inclua (nessa ordem) FAQ com 2 dúvidas comuns e respostas objetivas, e um lembrete “garantia de procedência e envio rápido. Tudo a pronta entrega!
+Empregue linguagem clara, profissional, acessível, persuasiva e SEM textos a mais.
 `
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -42,8 +44,8 @@ No fim, inclua (nessa ordem) FAQ com 2 dúvidas comuns e respostas objetivas, e 
         {role: "system", content: "Seu papel é gerar anúncios de altíssimo nível para marketplaces do Brasil, focando em copywriting profissional e SEO."},
         {role: "user", content: prompt}
       ],
-      max_tokens: 600,
-      temperature: 0.8
+      max_tokens: 900,
+      temperature: 0.5
     })
   })
 
