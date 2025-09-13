@@ -1,26 +1,34 @@
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY as string
 
 // Prompt pode ser ajustado para cada função:
-export async function gerarSugestoesAnuncio({ nome, marca, categoria, urlFabricante }: {
-  nome: string; marca: string; categoria: string; urlFabricante?: string
+export async function gerarSugestoesAnuncio({ ean, nome, marca, categoria, urlFabricante }: {
+  ean: string; nome: string; marca: string; categoria: string; urlFabricante?: string
 }) {
   const prompt = `
-Você é um especialista em e-commerce de marketplaces brasileiros (ex: Mercado Livre, Shopee, Amazon, Magazine Luiza, tik tok shop).
-Com base nas melhores práticas, gere sugestões otimizadas para vendas para o seguinte produto:
+Você é um especialista em copywriting para e-commerce e marketplace. Crie uma descrição persuasiva, clara e vendedora para um 
+produto pensando na publicação em marketplaces líderes como Mercado Livre, Shopee e TikTok Shop.
 
-Nome do produto: ${nome}
+Com base em boas práticas e políticas dessas plataformas, gere sugestões otimizadas de conteúdo para vendas do seguinte produto:
+EAN: ${ean}
+Nome: ${nome}
 Marca: ${marca}
 Categoria: ${categoria}
-${urlFabricante ? `Site ou referência para ficha técnica: ${urlFabricante}` : ""}
-  
-Responda com:
-1. Título otimizado e persuasivo (máx. 60 caracteres)
-2. Descrição comercial curta, focada em benefícios e diferenciais
-3. Palavras-chave eficazes para busca (5 a 10)
-4. Ficha técnica resumida (formato de tópicos)
-5. Traga 5 links de vídeos curtos como clips ou vídeos de tiktok, youtube shorts referente a demonstração do produtos
 
-Organize cada parte separadamente, comece cada com o respectivo título em CAPS.
+Responda SEM incluir instruções, contato, links externos de lojas, marcas concorrentes ou informações proibidas pelas políticas dos marketplaces.
+Empregue linguagem clara, profissional e atraente, voltada para conversão rápida e confiança.
+
+1. Título otimizado, persuasivo, com marca e palavras-chave relevantes (máx. 60 caracteres)
+
+2. Descrição comercial curta, focada nos tópicos:
+    Características principais:
+    Diferenciais: (benefícios, inovação, materiais)
+    Modo de uso: (modo de uso ou aplicação)
+
+3. De 5 a 10 palavras-chave eficazes para busca do produto
+
+4. Ficha técnica resumida, em tópicos, apenas com dados concretos e relevantes
+
+No fim, inclua (nessa ordem) FAQ com 2 dúvidas comuns e respostas objetivas, e um lembrete “garantia de procedência e envio rápido. Tudo a pronta entrega!
 `
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",

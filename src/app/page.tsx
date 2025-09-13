@@ -9,19 +9,19 @@ import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
 const modules = [
   {
     title: "Precificador",
-    description: "Calcule o preço ideal de venda individual, em lote e veja seu histórico.",
+    description: "Calcule o preço ideal de venda individual, em lote e consulta de histórico.",
     href: "/precificador",
     icon: <CalculateIcon sx={{ fontSize: 40, color: 'primary.main' }} />
   },
   {
     title: "Agente de Anúncios",
-    description: "Gere descrições e otimize anúncios automaticamente com IA.",
+    description: "Gere descrições e otimize anúncios com IA.",
     href: "/agente-anuncios",
     icon: <RocketLaunchIcon sx={{ fontSize: 40, color: 'primary.main' }} />
   },
   {
     title: "Cálculo de Monofásicos",
-    description: "Simulação rápida de tributos PIS/COFINS monofásicos.",
+    description: "Vendas de produtos monofásicos e não monofásicos para cálculo de PIS/COFINS.",
     href: "/monofasicos",
     icon: <MemoryIcon sx={{ fontSize: 40, color: 'primary.main' }} />
   }
